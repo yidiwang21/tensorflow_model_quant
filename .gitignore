@@ -28,3 +28,7 @@ Thumbs.db
 #####################
 model.savedmodel
 *.tflite
+
+# Dataset #
+###########
+dataset

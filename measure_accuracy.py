@@ -12,11 +12,11 @@ import argparse
 import os
 
 def test_image_generator(test_data_path, image_shape, batch_size):
-	datagen_kwargs = dict(rescale=1./255)	# no split here
+	datagen_kwargs = dict(rescale=1./255, validation_split=0.2)	# no split here
 	test_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**datagen_kwargs)
 	test_generator = test_datagen.flow_from_directory(
 		test_data_path,
-		subset="validation",
+		subset="training",
 		shuffle=True,
 		target_size=image_shape,
 		batch_size=batch_size
@@ -56,19 +56,20 @@ if __name__ == '__main__':
 
 	quant_precision = args.precision
 	model_repo = args.model_repo
-	if args.dataset is not None:
+	if args.dataset_path is not None:
 		dataset_path = args.dataset_path
 	else:
-		dataset_path = "../dataset/imagenet-mini/"
+		dataset_path = "dataset/imagenet-mini/"
 
 	image_shape = get_image_size(model_repo)
-	test_generator = test_image_generator(dataset_path + "val", image_shape, 1) # TODO: figure out batch size
+	test_generator = test_image_generator(dataset_path + "train", image_shape, 1) # TODO: figure out batch size
 	dataset_labels = sorted(test_generator.class_indices.items(), key=lambda pair:pair[1])
 	dataset_labels = np.array([key.title() for key, value in dataset_labels])
 
-	tflite_model_name = quant_precision + ".tflite"
-	tflite_model_path = os.path.join(model_repo, "tflite")
-	interpreter = tf.lite.Interpreter(model_path=tflite_model_path+tflite_model_name)
+	tflite_model_name = "lite_model_" + quant_precision + ".tflite"
+	tflite_model_path = os.path.join(model_repo, "tflite", tflite_model_name)
+	print("Loading model {}...".format(tflite_model_path))
+	interpreter = tf.lite.Interpreter(model_path=tflite_model_path)
 	interpreter.allocate_tensors()
 	
 	start_time = time.time()
@@ -81,7 +82,7 @@ if __name__ == '__main__':
 		# ImageNet has 1000 labels while mobilenet trained with imagenet has 1001 labels including class 0 as "background"
 		if np.argmax(label) == np.argmax(output) - 1:
 			correct += 1
-		if total % 500 == 0:
+		if total % 1000 == 0:
 			print("Accuracy after {} images: {}".format(total, float(correct)/float(total)))
 		if total >= 20000:
 			break
